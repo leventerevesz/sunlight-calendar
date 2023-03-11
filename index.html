@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<script type="text/javascript" src="suncalc.js"></script >
+<script type="text/javascript" src="bezier.js"></script>
+<script type="text/javascript" src="sunlight_calendar.js"></script>
+<script type="text/javascript">
+
+function zpad(num) {
+	return (100 + num + "").slice(-2);
+}
+
+function decimalToDegrees(ordinate) {
+	let deg = Math.floor(Math.abs(ordinate));
+	let min = (Math.abs(ordinate) * 60 % 60).toFixed(0);
+	return zpad(deg) + "°" + zpad(min) + "'";
+}
+
+function locationToString(latitude, longitude, altitude) {
+	let s = ""
+	
+	s += (latitude > 0 ? "N" : "S") + " ";
+	s += decimalToDegrees(latitude);
+
+	s += "  ";
+
+	s += (longitude > 0 ? "E" : "W") + " ";
+	s += decimalToDegrees(longitude);
+
+	s += "  ";
+	s += altitude.toFixed(0) + "m";
+
+	return s;
+}
+
+function draw() {
+	const location_name = document.getElementById("location-name").value.toUpperCase();
+	const latitude = Number(document.getElementById("latitude").value);
+	const longitude = Number(document.getElementById("longitude").value);
+	const altitude = Number(document.getElementById("altitude").value);
+	const tz_offset = Number(document.getElementById("tz-offset").value);
+
+	const location_line = locationToString(latitude, longitude, altitude);
+	const shapes = createShapes(latitude, longitude, altitude, tz_offset);
+
+	const svgdocument = document.getElementById("poster").contentDocument;
+	svgdocument.getElementById("sunlight-plot").setAttribute("d", shapes.sunlight);
+	svgdocument.getElementById("twilight-plot").setAttribute("d", shapes.twilight);
+	svgdocument.getElementById("coordinates-text").innerHTML = location_line;
+	svgdocument.getElementById("location-name-text").innerHTML = location_name;
+}
+
+function download() {
+	// https://takuti.me/note/javascript-save-svg-as-image/
+	// To save an svg image as png, a multi-stage conversion must be done
+	// <svg>  =>  Blob  => Image  =>  <canvas>
+
+	const svg = document.getElementById("poster").contentDocument.getElementById("svg");
+
+	// if css is used it must be inlined here
+
+	const data = (new XMLSerializer()).serializeToString(svg);
+	const blob = new Blob([data], { type: "image/svg+xml;charset=utf-8" }); 
+
+	// convert the blob object to a dedicated URL
+	const url = URL.createObjectURL(blob);
+
+	// load the SVG blob to a flesh image object
+	const img = new Image();
+	img.addEventListener("load", () => {
+		// draw the image on an ad-hoc canvas
+		const bbox = svg.getBBox();
+		const ppi = 300;
+		const inch_mm = 25.4;
+		
+		const canvas = document.createElement("canvas");
+		canvas.width = bbox.width * ppi / inch_mm;
+		canvas.height = bbox.height * ppi / inch_mm;
+		
+		const context = canvas.getContext("2d");
+		context.drawImage(img, 0, 0, canvas.width, canvas.height);
+		
+		URL.revokeObjectURL(url);
+		
+		// trigger a synthetic download operation with a temporary link
+		const a = document.createElement("a");
+		a.download = "sunlight_calendar.png";
+		document.body.appendChild(a);
+		a.href = canvas.toDataURL();
+		a.click();
+		a.remove();
+	});
+	img.src = url;
+}
+
+</script>
+</head>
+<body>
+
+<div>
+	<label for="location-name">Location Name:</label>
+	<input id="location-name" name="location-name" value="Budapest"><br><br>
+	<label for="latitude">Latitude:</label>
+	<input id="latitude" name="latitude" type="number" value=47.49><br><br>
+	<label for="longitude">Longitude:</label>
+	<input id="longitude" name="longitude" type="number" value=19.03><br><br>
+	<label for="altitude">Altitude:</label>
+	<input id="altitude" name="altitude" type="number" value=100><br><br>
+	<label for="tz-offset">Timezone Offset:</label>
+	<input id="tz-offset" name=tz-offset" type="number" value=1><br><br>
+	<button onClick="draw()">Draw</button>
+	<button onClick="download()">Download</button>
+</div>
+
+<object id="poster" type="image/svg+xml" data="sunlight_calendar.svg" width=800></object>
+<!--
+<svg id="plot" height="100%" width="100%">
+     	<path id="sunlight-plot" d="" style="fill:#ffcc00;stroke:none;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"/>
+</svg>
+-->
+
+</body>
+</html>
