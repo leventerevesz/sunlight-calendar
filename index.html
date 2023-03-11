@@ -51,6 +51,19 @@ function draw() {
 	svgdocument.getElementById("location-name-text").innerHTML = location_name;
 }
 
+function downloadSvg() {
+    const svg = document.getElementById("poster").contentDocument.getElementById("svg");
+    const base64doc = btoa(unescape(encodeURIComponent(svg.outerHTML)));
+
+    // trigger a synthetic download operation with a temporary link
+    const a = document.createElement("a");
+    a.download = "sunlight_calendar.svg";
+    a.href = 'data:image/svg+xml;base64,' + base64doc;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+}
+
 function download() {
 	// https://takuti.me/note/javascript-save-svg-as-image/
 	// To save an svg image as png, a multi-stage conversion must be done
@@ -111,6 +124,7 @@ function download() {
 	<input id="tz-offset" name=tz-offset" type="number" value=1><br><br>
 	<button onClick="draw()">Draw</button>
 	<button onClick="download()">Download</button>
+	<button onClick="downloadSvg()">Download SVG</button>
 </div>
 
 <object id="poster" type="image/svg+xml" data="sunlight_calendar.svg" width=800></object>
