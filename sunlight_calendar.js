@@ -21,6 +21,8 @@ function calculateTimes(latitude, longitude, altitude, tz_offset)
     times.sunset = [];
     times.dawn = [];
     times.dusk = [];
+    times.morning_sunset = [];
+    times.morning_dusk = [];
     
     for (let d = 1; d <= 365; d++) {
         let day = new Date(Date.UTC(2022, 0, d, - tz_offset));
@@ -32,6 +34,12 @@ function calculateTimes(latitude, longitude, altitude, tz_offset)
         let sunset = timeOfDay(t.sunset, day);
         let dawn = timeOfDay(t.dawn, day);
         let dusk = timeOfDay(t.dusk, day);
+        
+        // In the arctic sometimes the last sunset is part of today
+        let prev_noon = new Date(Date.UTC(2022, 0, d-1, 12 - tz_offset));
+        let t_prev_day = SunCalc.getTimes(prev_noon, latitude, longitude, altitude);
+        let morning_sunset = timeOfDay(t_prev_day.sunset, day);
+        let morning_dusk = timeOfDay(t_prev_day.dusk, day);
         
         // In the arctic sometimes the sun does not rise and/or set.
         let isLocalWinter = (latitude < 0) ^ (d < 91 || d > 274);
@@ -62,6 +70,12 @@ function calculateTimes(latitude, longitude, altitude, tz_offset)
         times.sunset.push(sunset);
         times.dawn.push(dawn);
         times.dusk.push(dusk);
+
+        if (!isNaN(morning_sunset))
+            times.morning_sunset.push(morning_sunset);
+        
+        if (!isNaN(morning_dusk))
+            times.morning_dusk.push(morning_dusk);
     }
     
     return times;
@@ -92,15 +106,18 @@ function createCurve(times, reversed=false)
     return new Bezier(points, smooth_factor);
 }
 
-function createSvgShape(morningTimes, eveningTimes)
+function createSvgShape(morningTimes, eveningTimes, overflowEveningTimes)
 {
     let shape = "";
     shape += createCurve(eveningTimes).svg();
-    shape += "";
     
     // The inner curve has reversed winding order, so it
     // creates a hole in the shape
     shape += createCurve(morningTimes, true).svg();
+
+    // Overflow sunset/dusk times are added as a convex shape
+    // in the center
+    shape += createCurve(overflowEveningTimes).svg();
     
     return shape;
 }
@@ -110,8 +127,12 @@ function createShapes(latitude, longitude, altitude, tz_offset)
     let times = calculateTimes(latitude, longitude, altitude, tz_offset);
 
     let shapes = {};
-    shapes.sunlight = createSvgShape(times.sunrise, times.sunset);
-    shapes.twilight = createSvgShape(times.dawn, times.dusk);
+    shapes.sunlight = createSvgShape(times.sunrise,
+                                     times.sunset,
+                                     times.morning_sunset);
+    shapes.twilight = createSvgShape(times.dawn,
+                                     times.dusk,
+                                     times.morning_dusk);
     
     return shapes;
 }
